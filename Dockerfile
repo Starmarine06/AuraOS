@@ -37,6 +37,7 @@ RUN apt-get update && apt-get install -y \
     squashfs-tools \
     cpio \
     gzip \
+    zstd \
     curl \
     live-boot \
     live-boot-initramfs-tools \
@@ -54,6 +55,16 @@ RUN mkdir -p /rootfs && \
 # Install system libraries and user applications inside the target rootfs
 RUN apt-get update && apt-get install -y --install-recommends --no-install-suggests \
     -o Root="/rootfs" \
+    libc6 \
+    dash \
+    bash \
+    coreutils \
+    debianutils \
+    grep \
+    sed \
+    tar \
+    gzip \
+    findutils \
     udev \
     dbus \
     dbus-x11 \
@@ -83,8 +94,11 @@ RUN apt-get update && apt-get install -y --install-recommends --no-install-sugge
     mesa-vulkan-drivers:i386 \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and add standalone Linux Ollama binary into target rootfs
-RUN curl -L https://ollama.com/download/ollama-linux-amd64 -o /rootfs/usr/bin/ollama && \
+# Manually configure symlinks for essential interpreters in the target rootfs
+RUN ln -sf dash /rootfs/bin/sh && ln -sf bash /rootfs/bin/bash
+
+# Download and extract standalone Linux Ollama binary into target rootfs
+RUN curl -L https://ollama.com/download/ollama-linux-amd64.tar.zst | zstd -d | (tar -x -C /rootfs/usr/bin --strip-components=1 bin/ollama || true) && \
     chmod +x /rootfs/usr/bin/ollama
 
 # Copy static Rust binaries into target rootfs
@@ -112,26 +126,36 @@ COPY --chown=1000:1000 --from=openclaw-builder /app /rootfs/opt/openclaw
 
 # Prepare the ISO build layout
 WORKDIR /iso
-RUN mkdir -p boot/grub live
+RUN mkdir -p boot/grub live EFI/boot
 
 # Compress target rootfs into SquashFS inside /iso/live
 RUN mksquashfs /rootfs /iso/live/filesystem.squashfs -comp xz -noappend
 
-# Copy the Linux Kernel and the generated small live initrd to /iso/live/
+# Copy the Linux Kernel and the generated live initrd to /iso/live/
+# live-boot hooks are present because live-boot-initramfs-tools is installed
 RUN cp $(ls /boot/vmlinuz-* | head -n 1) /iso/live/vmlinuz && \
     cp $(ls /boot/initrd.img-* | head -n 1) /iso/live/initrd.img
 
-# Create GRUB configuration targeting SquashFS live boot
+# Create GRUB configuration for BIOS+EFI live boot
+# NOTE: Do NOT pass init=/init here — live-boot must first pivot_root into the
+# squashfs. Our custom /init binary is PID1 *inside* the squashfs rootfs,
+# invoked after pivot_root via the 'init=' live-boot parameter.
 RUN echo 'set default=0' > /iso/boot/grub/grub.cfg && \
-    echo 'set timeout=2' >> /iso/boot/grub/grub.cfg && \
-    echo 'menuentry "AuraOS (Pure Rust Base)" {' >> /iso/boot/grub/grub.cfg && \
-    echo '    linux /live/vmlinuz boot=live quiet init=/init' >> /iso/boot/grub/grub.cfg && \
+    echo 'set timeout=3' >> /iso/boot/grub/grub.cfg && \
+    echo '' >> /iso/boot/grub/grub.cfg && \
+    echo 'menuentry "AuraOS" {' >> /iso/boot/grub/grub.cfg && \
+    echo '    linux /live/vmlinuz boot=live quiet splash' >> /iso/boot/grub/grub.cfg && \
+    echo '    initrd /live/initrd.img' >> /iso/boot/grub/grub.cfg && \
+    echo '}' >> /iso/boot/grub/grub.cfg && \
+    echo '' >> /iso/boot/grub/grub.cfg && \
+    echo 'menuentry "AuraOS (nomodeset / safe video)" {' >> /iso/boot/grub/grub.cfg && \
+    echo '    linux /live/vmlinuz boot=live quiet splash nomodeset' >> /iso/boot/grub/grub.cfg && \
     echo '    initrd /live/initrd.img' >> /iso/boot/grub/grub.cfg && \
     echo '}' >> /iso/boot/grub/grub.cfg
 
 # Copy pre-cached Ollama model files directly to the ISO directory (outside initramfs)
 COPY --chown=1000:1000 ollama-cache /iso
 
-# Generate the bootable ISO using grub-mkrescue
+# Generate the bootable ISO using grub-mkrescue (BIOS + EFI hybrid)
 RUN mkdir -p /out
-CMD grub-mkrescue -o /out/auraos.iso /iso -- -volid "AURAOS"
+CMD grub-mkrescue -o /out/auraos.iso /iso -- -volid AURAOS

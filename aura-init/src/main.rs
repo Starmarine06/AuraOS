@@ -49,9 +49,10 @@ fn main() {
 
     // 3. Start udev daemon
     println!("Starting udevd...");
-    if let Err(e) = Command::new("/lib/systemd/systemd-udevd")
+    if let Err(e) = Command::new("/usr/lib/systemd/systemd-udevd")
         .arg("--daemon")
         .spawn()
+        .or_else(|_| Command::new("/lib/systemd/systemd-udevd").arg("--daemon").spawn())
         .or_else(|_| Command::new("/sbin/udevd").arg("--daemon").spawn())
     {
         eprintln!("Failed to start udevd: {}", e);

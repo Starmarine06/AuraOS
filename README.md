@@ -1,26 +1,48 @@
-# AuraOS – Premium Linux Base with Pure Rust Init
+<p align="center">
+  <img src="backgrounds/aura-wallpaper.png" alt="AuraOS" width="100%">
+</p>
 
-AuraOS is an extremely lightweight, high-performance, custom Linux operating system built from scratch. It discards heavy system management layers (like systemd) in favor of a custom, statically compiled **init system written in Rust** (`aura-init`). The user interface is a premium, translucent, glassmorphic dashboard (`aura-gui`) backed by a local AI agent daemon (`aura-agent`) running a Qwen-2.5-1.5B model.
+# AuraOS ✦
+<p align="center">
+  <a href="https://github.com/Starmarine06/AuraOS">GitHub Repository</a> | <a href="https://github.com/Starmarine06/AuraOS/releases">Download ISO</a>
+</p>
+<p align="center">
+  <a href="https://github.com/Starmarine06/AuraOS"><img src="https://img.shields.io/badge/OS-Custom%20Linux-blue?style=for-the-badge" alt="OS"></a>
+  <a href="https://github.com/Starmarine06/AuraOS"><img src="https://img.shields.io/badge/Init-Pure%20Rust-orange?style=for-the-badge" alt="Init System"></a>
+  <a href="https://github.com/Starmarine06/AuraOS/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/Starmarine06/AuraOS"><img src="https://img.shields.io/badge/UI-Glassmorphic%20egui-pink?style=for-the-badge" alt="UI"></a>
+</p>
+
+**The lightweight, high-performance Linux operating system built from scratch with a pure Rust init system.** It discards heavy system management layers (like systemd) in favor of `aura-init`, a statically compiled PID 1 daemon. Features a premium translucent glassmorphic desktop interface (`aura-gui`) backed by a local AI agent daemon (`aura-agent`) running a Qwen-2.5-1.5B model. Stage, commit, and push your changes automatically via Git, run Windows apps/games natively via Wine and Steam, and monitor resources with transparent desktop widgets.
+
+<table>
+<tr><td><b>Pure Rust Init System</b></td><td>A lightweight, statically compiled Rust binary running as PID 1 (<code>/init</code>). Mounts virtual filesystems, manages network interfaces, starts services, configures display devices, and automatically restarts components on exit.</td></tr>
+<tr><td><b>Frosted Glass Desktop GUI</b></td><td>An <code>egui</code>-based UI powered by <code>picom</code> with dual-kawase blur. Merges circular macOS window control accents (top-left traffic lights) with a modern Windows Fluent-style dark theme. Includes spotlight math and app launcher.</td></tr>
+<tr><td><b>Local AI Agent Daemon</b></td><td>A background service running on port 5050 with root access to execute bash commands, record raw input event macros, and perform Bluetooth proximity lock security.</td></tr>
+<tr><td><b>Windows Compatibility</b></td><td>Pre-configured 32-bit and 64-bit glibc libraries supporting Wine, Winetricks, Steam, Lutris, and Bottles to run Windows software and games natively.</td></tr>
+<tr><td><b>Desktop Widgets (Conky)</b></td><td>Transparent widgets rendered directly on the wallpaper displaying clock, uptime, real-time CPU/RAM/Disk stats, and network speeds.</td></tr>
+<tr><td><b>Auto-Sync Development</b></td><td>Continuous synchronization to your GitHub repository (<code>https://github.com/Starmarine06/AuraOS</code>) keeping your workspace and code changes up to date.</td></tr>
+</table>
 
 ---
 
-## ✦ System Architecture
+## System Architecture
 
 AuraOS is built using a multi-stage Docker environment and compiles all core OS orchestration components statically in Rust.
 
 ```mermaid
 graph TD
-    Kernel[Linux Kernel] -->|Launches PID 1| Init[aura-init (Rust)]
+    Kernel[Linux Kernel] -->|Launches PID 1| Init["aura-init (Rust)"]
     Init -->|Initializes| Udev[eudev / Device Managers]
     Init -->|Starts| Dbus[D-Bus System Daemon]
     Init -->|Launches| Xorg[Xorg Display Server]
     Init -->|Launches| Ollama[Ollama Local LLM]
-    Init -->|Launches| Agent[aura-agent Daemon (Rust)]
+    Init -->|Launches| Agent["aura-agent Daemon (Rust)"]
     Init -->|Launches| Openbox[Openbox Window Manager]
     Init -->|Launches| Picom[Picom Compositor]
     
     Xorg --> Openbox
-    Picom -->|Applies Blur & Shadows| GUI[aura-gui Desktop (Rust)]
+    Picom -->|Applies Blur & Shadows| GUI["aura-gui Desktop (Rust)"]
     Xorg --> Conky[Conky Desktop Widget]
     
     GUI -->|REST API Port 5050| Agent
@@ -29,80 +51,44 @@ graph TD
 
 ---
 
-## ✦ Features
+## Quick Start
 
-### 1. Pure Rust Init System (`aura-init`)
-The entire system boot process is managed by a lightweight, statically compiled Rust binary running as PID 1 (`/init`). It mounts virtual filesystems, configures network loops, initializes USB and display devices, starts services, launches Xorg, reaps zombie processes, and automatically restarts the GUI if it exits.
+### Build the Bootable ISO
 
-### 2. Translucent Glassmorphic AI GUI (`aura-gui`)
-An `egui` (eframe) GUI that boots directly onto X11.
-* **Frosted-Glass Transparency**: Utilizing a system-level GPU compositor (`picom`) with dual-kawase blur to create a frosted backdrop.
-* **macOS/Windows Hybrid Design**: Blends circular macOS window controls (top-left traffic lights) with modern Windows Fluent-style dark theme accents.
-* **Spotlight Math & App Launcher**: Typing math equations (e.g. `2+2*5`) or application names (e.g. `firefox`) into the input bar offers instant autocompletion and launching.
+AuraOS is built inside a multi-stage Docker builder to ensure a reproducible toolchain and clean compilation environment.
 
-### 3. Local AI Agent Daemon (`aura-agent`)
-A background service running on port `5050` that manages chat requests, macro capture, and system interaction.
-* **System Control**: The agent has root access to run bash commands on your behalf.
-* **Macro Recording**: Records physical keyboard and mouse events by listening to raw `/dev/input/event*` nodes.
-* **Macro Playback**: Simulates input events using a virtual `uinput` device.
-* **Bluetooth Proximity Lock**: Automatically locks the screen if your paired Bluetooth device (e.g. phone) goes out of range (using `l2ping`).
+**Prerequisites:** Docker Desktop (Windows) or standard Docker engine (Linux/macOS).
 
-### 4. Windows Compatibility Layers
-Pre-configured 32-bit (i386) and 64-bit (amd64) glibc compatibility libraries supporting:
-* **Wine & Winetricks**: Run standard Windows executable binaries (`.exe`).
-* **Steam**: Access your Steam gaming library natively.
-* **Lutris & Bottles**: Easily manage and run Windows games and software launchers.
+Run the build script in your terminal:
 
-### 5. Rainmeter-style Desktop Widgets (`conky`)
-A transparent widget rendered directly on the desktop background. Displays real-time:
-* Clock and calendar.
-* System uptime and kernel version.
-* CPU usage graph and clock speed.
-* RAM memory bar.
-* Disk space usage bar.
-* Loopback and ethernet network speeds.
-
-### 6. Automated Git/GitHub Synchronization
-The workspace is linked directly to your GitHub repository:
-* Remote origin: `https://github.com/Starmarine06/AuraOS`
-* Every verified and approved code change is automatically staged, committed, and pushed to GitHub.
-
----
-
-## ✦ How to Build and Run
-
-### Prerequisites
-* Windows with **Docker Desktop** running, or any standard Linux system with Docker.
-
-### 1. Build the Bootable ISO
-From your terminal, run the build script:
 ```bash
 ./build-iso.sh
 ```
-This script will:
-1. Verify Docker is running.
-2. Build the multi-stage Docker image `auraos-builder`.
-3. Copy the compiled, bootable ISO file to `out/auraos.iso` in your host directory.
 
-### 2. Run in a Virtual Machine
-Create a virtual machine in **VMware Workstation** or **QEMU**:
-* **OS type**: Linux / Debian 64-bit.
-* **Boot mode**: UEFI or Legacy BIOS.
-* **CD/DVD**: Point it to `out/auraos.iso`.
-* **RAM**: Allocate at least 2GB (4GB recommended if running the LLM).
+This will automatically:
+1. Validate your Docker environment.
+2. Compile all Rust crates (`aura-init`, `aura-gui`, `aura-agent`) statically.
+3. Build the bootable ISO file and output it to `out/auraos.iso`.
+
+### Run in a Virtual Machine
+
+Set up a VM in VMware, VirtualBox, or QEMU using the following settings:
+- **Guest OS:** Linux / Debian 64-bit (or generic 64-bit kernel)
+- **Boot Interface:** UEFI or Legacy BIOS
+- **Optical Drive:** Mount `out/auraos.iso`
+- **Memory:** Minimum 2GB RAM (4GB+ recommended for local LLM execution)
 
 ---
 
-## ✦ How to Use AuraOS
+## How to Use AuraOS
 
 ### Chat & AI Commands
-Open the translucent GUI dashboard and type a command:
-* **System Check**: `"Show me my system information"` (Agent runs `uname -a`, `free -h` and responds).
-* **Launch Apps**: Type `"Launch firefox"` or `"alacritty"`.
-* **Lock Screen**: Pair your Bluetooth phone MAC address in Settings, enable Proximity Lock, and walk away.
+Boot the OS to launch the glassmorphic GUI, then interact with the local agent daemon:
+- **System Diagnostics:** Type `"Show me my system information"` (runs `uname -a` and `free -h`).
+- **Application Launcher:** Type `"Launch firefox"` or `"alacritty"` to run applications.
+- **Proximity Lock:** Pair your phone's MAC address in Settings, toggle Bluetooth proximity lock, and walk away to auto-lock the session.
 
 ### Input Macros
-* To record a macro, type in the prompt: `"record macro firefox-search"`
-* Perform your keyboard/mouse actions.
-* To stop, click the yellow/green close/minimize window controls or type `"stop recording"`.
-* To replay, type: `"play macro firefox-search"`.
+AuraOS reads raw input events from `/dev/input/` and plays them back using a virtual `uinput` device.
+- **Record Macro:** Enter `"record macro firefox-search"` in the prompt, perform your actions, then close the window or type `"stop recording"`.
+- **Play Macro:** Replay the recorded inputs using `"play macro firefox-search"`.
