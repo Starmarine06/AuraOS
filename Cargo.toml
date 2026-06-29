@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "aura-agent",
+    "aura-gui",
+    "aura-init",
+]
+resolver = "2"

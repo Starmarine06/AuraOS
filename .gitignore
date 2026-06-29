@@ -1,0 +1,14 @@
+# Ignore Linux rootfs symlinks that cannot be indexed on Windows
+/auraos-profile/airootfs/etc/systemd/system/display-manager.service
+/auraos-profile/airootfs/etc/systemd/system/multi-user.target.wants/
+
+# Ignore Rust/Cargo build artifacts
+/target/
+
+# Ignore large model caches and build outputs
+/ollama-cache/
+/out/
+/.pacman-cache/
+/.pnpm-store/
+/.cargo-cache/
+/log.log

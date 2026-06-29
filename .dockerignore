@@ -1,0 +1,16 @@
+.git
+target
+.pacman-cache
+.pnpm-store
+.cargo-cache
+out
+openclaw/.git
+openclaw/node_modules
+openclaw/dist
+openclaw/dist-runtime
+openclaw/android
+openclaw/ios
+openclaw/**/node_modules/.cache
+**/node_modules
+*.iso
+log.log
