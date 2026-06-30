@@ -137,19 +137,18 @@ RUN cp $(ls /boot/vmlinuz-* | head -n 1) /iso/live/vmlinuz && \
     cp $(ls /boot/initrd.img-* | head -n 1) /iso/live/initrd.img
 
 # Create GRUB configuration for BIOS+EFI live boot
-# NOTE: Do NOT pass init=/init here — live-boot must first pivot_root into the
-# squashfs. Our custom /init binary is PID1 *inside* the squashfs rootfs,
-# invoked after pivot_root via the 'init=' live-boot parameter.
+# init=/init: tells live-boot to exec our Rust binary after pivot_root into squashfs
+# nouveau.modeset=0: prevents nouveau from crashing without NVIDIA firmware
 RUN echo 'set default=0' > /iso/boot/grub/grub.cfg && \
     echo 'set timeout=3' >> /iso/boot/grub/grub.cfg && \
     echo '' >> /iso/boot/grub/grub.cfg && \
     echo 'menuentry "AuraOS" {' >> /iso/boot/grub/grub.cfg && \
-    echo '    linux /live/vmlinuz boot=live quiet splash' >> /iso/boot/grub/grub.cfg && \
+    echo '    linux /live/vmlinuz boot=live quiet splash init=/init nouveau.modeset=0' >> /iso/boot/grub/grub.cfg && \
     echo '    initrd /live/initrd.img' >> /iso/boot/grub/grub.cfg && \
     echo '}' >> /iso/boot/grub/grub.cfg && \
     echo '' >> /iso/boot/grub/grub.cfg && \
-    echo 'menuentry "AuraOS (nomodeset / safe video)" {' >> /iso/boot/grub/grub.cfg && \
-    echo '    linux /live/vmlinuz boot=live quiet splash nomodeset' >> /iso/boot/grub/grub.cfg && \
+    echo 'menuentry "AuraOS (safe video / nomodeset)" {' >> /iso/boot/grub/grub.cfg && \
+    echo '    linux /live/vmlinuz boot=live quiet splash init=/init nomodeset nouveau.modeset=0' >> /iso/boot/grub/grub.cfg && \
     echo '    initrd /live/initrd.img' >> /iso/boot/grub/grub.cfg && \
     echo '}' >> /iso/boot/grub/grub.cfg
 
