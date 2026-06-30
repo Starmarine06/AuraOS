@@ -155,7 +155,7 @@ RUN apt-get update && apt-get install -y \
 # Create GRUB EFI standalone binary (UEFI boot path)
 # grub-mkstandalone embeds the config so no separate grub.cfg lookup is needed
 RUN mkdir -p /iso/boot/grub /iso/EFI/BOOT && \
-    printf 'set timeout=3\nset default=0\n\nmenuentry "AuraOS" {\n    search --no-floppy --set=root --file /live/vmlinuz\n    linux /live/vmlinuz boot=live quiet splash init=/init nouveau.modeset=0\n    initrd /live/initrd.img\n}\n\nmenuentry "AuraOS (safe video)" {\n    search --no-floppy --set=root --file /live/vmlinuz\n    linux /live/vmlinuz boot=live quiet splash init=/init nomodeset nouveau.modeset=0\n    initrd /live/initrd.img\n}\n' > /iso/boot/grub/grub.cfg && \
+    printf 'terminal_input console\nterminal_output console\nset timeout=3\nset default=0\n\nmenuentry "AuraOS" {\n    search --no-floppy --set=root --file /live/vmlinuz\n    linux /live/vmlinuz boot=live quiet splash init=/init nouveau.modeset=0\n    initrd /live/initrd.img\n}\n\nmenuentry "AuraOS (safe video)" {\n    search --no-floppy --set=root --file /live/vmlinuz\n    linux /live/vmlinuz boot=live quiet splash init=/init nomodeset nouveau.modeset=0\n    initrd /live/initrd.img\n}\n' > /iso/boot/grub/grub.cfg && \
     grub-mkstandalone \
         --format=x86_64-efi \
         --output=/iso/EFI/BOOT/BOOTX64.EFI \
