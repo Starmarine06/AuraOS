@@ -27,13 +27,13 @@ RUN sed -i 's/Components: main/Components: main contrib non-free non-free-firmwa
 RUN dpkg --add-architecture i386
 
 # Install build dependencies for ISO generation and target packages
+# Using syslinux/isolinux instead of GRUB (same as Arch Linux ISOs)
 RUN apt-get update && apt-get install -y \
     xorriso \
-    grub-common \
-    grub-pc-bin \
-    grub-efi-amd64-bin \
+    syslinux \
+    syslinux-common \
+    isolinux \
     mtools \
-    dosfstools \
     squashfs-tools \
     cpio \
     gzip \
@@ -124,37 +124,40 @@ RUN mkdir -p /rootfs/var/lib/ollama && chown -R 1000:1000 /rootfs/var/lib/ollama
 # Copy built OpenClaw Node gateway from builder stage with proper ownership
 COPY --chown=1000:1000 --from=openclaw-builder /app /rootfs/opt/openclaw
 
-# Prepare the ISO build layout
+# Prepare the ISO build layout (Arch-style: isolinux for BIOS boot)
 WORKDIR /iso
-RUN mkdir -p boot/grub live EFI/boot
+RUN mkdir -p isolinux live
 
 # Compress target rootfs into SquashFS inside /iso/live
 RUN mksquashfs /rootfs /iso/live/filesystem.squashfs -comp xz -noappend
 
-# Copy the Linux Kernel and the generated live initrd to /iso/live/
-# live-boot hooks are present because live-boot-initramfs-tools is installed
+# Copy kernel and initrd
 RUN cp $(ls /boot/vmlinuz-* | head -n 1) /iso/live/vmlinuz && \
     cp $(ls /boot/initrd.img-* | head -n 1) /iso/live/initrd.img
 
-# Create GRUB configuration for BIOS+EFI live boot
-# init=/init: tells live-boot to exec our Rust binary after pivot_root into squashfs
-# nouveau.modeset=0: prevents nouveau from crashing without NVIDIA firmware
-RUN echo 'set default=0' > /iso/boot/grub/grub.cfg && \
-    echo 'set timeout=3' >> /iso/boot/grub/grub.cfg && \
-    echo '' >> /iso/boot/grub/grub.cfg && \
-    echo 'menuentry "AuraOS" {' >> /iso/boot/grub/grub.cfg && \
-    echo '    linux /live/vmlinuz boot=live quiet splash init=/init nouveau.modeset=0' >> /iso/boot/grub/grub.cfg && \
-    echo '    initrd /live/initrd.img' >> /iso/boot/grub/grub.cfg && \
-    echo '}' >> /iso/boot/grub/grub.cfg && \
-    echo '' >> /iso/boot/grub/grub.cfg && \
-    echo 'menuentry "AuraOS (safe video / nomodeset)" {' >> /iso/boot/grub/grub.cfg && \
-    echo '    linux /live/vmlinuz boot=live quiet splash init=/init nomodeset nouveau.modeset=0' >> /iso/boot/grub/grub.cfg && \
-    echo '    initrd /live/initrd.img' >> /iso/boot/grub/grub.cfg && \
-    echo '}' >> /iso/boot/grub/grub.cfg
+# Copy isolinux boot files (same as Arch Linux ISO approach)
+RUN cp /usr/lib/ISOLINUX/isolinux.bin /iso/isolinux/ && \
+    cp /usr/lib/syslinux/modules/bios/ldlinux.c32 /iso/isolinux/ && \
+    cp /usr/lib/syslinux/modules/bios/menu.c32 /iso/isolinux/ && \
+    cp /usr/lib/syslinux/modules/bios/libutil.c32 /iso/isolinux/
 
-# Copy pre-cached Ollama model files directly to the ISO directory (outside initramfs)
+# Create isolinux boot config
+# init=/init: tells live-boot to exec our Rust binary after pivot_root
+# nouveau.modeset=0: prevents nouveau from crashing without NVIDIA firmware
+RUN printf 'UI menu.c32\nPROMPT 0\nTIMEOUT 30\n\nLABEL auraos\n  MENU LABEL AuraOS\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd.img boot=live quiet splash init=/init nouveau.modeset=0\n\nLABEL auraos-safe\n  MENU LABEL AuraOS (safe video)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd.img boot=live quiet splash init=/init nomodeset nouveau.modeset=0\n' > /iso/isolinux/isolinux.cfg
+
+# Copy pre-cached Ollama model files
 COPY --chown=1000:1000 ollama-cache /iso
 
-# Generate the bootable ISO using grub-mkrescue (BIOS + EFI hybrid)
+# Generate hybrid ISO with isolinux boot sector (Arch-style)
 RUN mkdir -p /out
-CMD grub-mkrescue -o /out/auraos.iso /iso -- -volid AURAOS
+CMD xorriso -as mkisofs \
+    -o /out/auraos.iso \
+    -b isolinux/isolinux.bin \
+    -c isolinux/boot.cat \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+    -V AURAOS \
+    /iso
