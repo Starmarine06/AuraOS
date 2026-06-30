@@ -146,10 +146,33 @@ RUN cp /usr/lib/ISOLINUX/isolinux.bin /iso/isolinux/ && \
 # nouveau.modeset=0: prevents nouveau from crashing without NVIDIA firmware
 RUN printf 'UI menu.c32\nPROMPT 0\nTIMEOUT 30\n\nLABEL auraos\n  MENU LABEL AuraOS\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd.img boot=live quiet splash init=/init nouveau.modeset=0\n\nLABEL auraos-safe\n  MENU LABEL AuraOS (safe video)\n  KERNEL /live/vmlinuz\n  APPEND initrd=/live/initrd.img boot=live quiet splash init=/init nomodeset nouveau.modeset=0\n' > /iso/isolinux/isolinux.cfg
 
+# Install GRUB EFI tools for UEFI boot (separate layer - preserves squashfs cache above)
+RUN apt-get update && apt-get install -y \
+    grub-efi-amd64-bin \
+    dosfstools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create GRUB EFI standalone binary (UEFI boot path)
+# grub-mkstandalone embeds the config so no separate grub.cfg lookup is needed
+RUN mkdir -p /iso/boot/grub /iso/EFI/BOOT && \
+    printf 'set timeout=3\nset default=0\n\nmenuentry "AuraOS" {\n    linux /live/vmlinuz boot=live quiet splash init=/init nouveau.modeset=0\n    initrd /live/initrd.img\n}\n\nmenuentry "AuraOS (safe video)" {\n    linux /live/vmlinuz boot=live quiet splash init=/init nomodeset nouveau.modeset=0\n    initrd /live/initrd.img\n}\n' > /iso/boot/grub/grub.cfg && \
+    grub-mkstandalone \
+        --format=x86_64-efi \
+        --output=/iso/EFI/BOOT/BOOTX64.EFI \
+        --locales="" \
+        --fonts="" \
+        "boot/grub/grub.cfg=/iso/boot/grub/grub.cfg"
+
+# Wrap EFI binary in a small FAT image (required by xorriso EFI boot)
+RUN dd if=/dev/zero of=/iso/boot/efi.img bs=1M count=8 && \
+    mkfs.vfat -F 12 /iso/boot/efi.img && \
+    mmd -i /iso/boot/efi.img ::/EFI ::/EFI/BOOT && \
+    mcopy -i /iso/boot/efi.img /iso/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
+
 # Copy pre-cached Ollama model files
 COPY --chown=1000:1000 ollama-cache /iso
 
-# Generate hybrid ISO with isolinux boot sector (Arch-style)
+# Generate hybrid ISO: BIOS via isolinux + UEFI via GRUB EFI
 RUN mkdir -p /out
 CMD xorriso -as mkisofs \
     -o /out/auraos.iso \
@@ -158,6 +181,9 @@ CMD xorriso -as mkisofs \
     -no-emul-boot \
     -boot-load-size 4 \
     -boot-info-table \
+    -eltorito-alt-boot \
+    -e boot/efi.img \
+    -no-emul-boot \
     -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
     -V AURAOS \
     /iso
